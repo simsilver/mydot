@@ -1,0 +1,16 @@
+setopt PROMPT_SUBST
+autoload -Uz compinit
+compinit
+
+$template(. ~/${github_file:*.plugin.zsh:*.zsh})
+
+if [[ -f $HOME/.myshrc.common ]];
+then
+	source $HOME/.myshrc.common
+fi
+
+if [[ -f $HOME/.myshrc.private ]];
+then
+	source $HOME/.myshrc.private
+fi
+

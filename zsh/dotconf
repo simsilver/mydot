@@ -1,0 +1,7 @@
+github      zdharma-continuum/fast-syntax-highlighting  .zsh_plugins/${repo}
+github      MichaelAquilina/zsh-you-should-use          .zsh_plugins/${repo}    you-should-use.plugin.zsh
+github      zsh-users/zsh-completions                   .zsh_plugins/${repo}
+github      zsh-users/zsh-history-substring-search      .zsh_plugins/${repo}    zsh-history-substring-search.zsh
+github      zsh-users/zsh-autosuggestions               .zsh_plugins/${repo}    zsh-autosuggestions.zsh
+github      robbyrussell/oh-my-zsh                      .zsh_plugins/${repo}    themes/gentoo.zsh-theme lib
+template    .zshrc.template                             

@@ -1,0 +1,191 @@
+export ANDROID_SDK_ROOT=~/.local/android/sdk
+export ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/25.1.8937393
+export PATH=$PATH:~/.local/bin:~/.cargo/bin:$ANDROID_SDK_ROOT/platform-tools/:$ANDROID_SDK_ROOT/build-tools/35.0.0/:~/.local/flutter/bin/:~/.emacs.d/bin/:${HOME}/.local/depot_tools/:$ANDROID_SDK_ROOT/tools/bin/
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+export PATH=$PATH:~/.local/cross/x86_64-unknown-linux-gnu/bin/:~/.local/cross/aarch64-unknown-linux-gnu/bin/
+export EDITOR="emacsclient -c -n -a runemacs"
+export GIT_EDITOR="emacsclient -c -a runemacs"
+#export EDITOR=gvim
+#export GIT_EDITOR=vim
+export CSCOPE_EDITOR=vim
+export LANG="en_US.UTF-8"
+export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
+RUST_SRC_PATH=$(rustc --print sysroot)/lib/rustlib/src/rust/library
+export RUST_SRC_PATH
+export USE_CCACHE=1
+
+if [ -f "$HOME"/.myshrc.win ]; then
+  source "$HOME"/.myshrc.win
+fi
+
+..() {
+  i=${1:-1}
+  if [ "$i" -gt 0 ] 2>/dev/null; then
+
+    tmp_path=""
+    while [ "$i" -gt 0 ]; do
+      tmp_path=../$tmp_path
+      i=$((i - 1))
+    done
+    cd $tmp_path || return
+  else
+    echo "expect a number"
+  fi
+}
+
+proxy() {
+  ip=${1:-127.0.0.1}
+  port=${2:-20172}
+  export HTTPS_PROXY=http://${ip}:${port}/
+  export HTTP_PROXY=http://${ip}:${port}/
+  export NO_PROXY=localhost,127.0.0.0/8,::1
+  export http_proxy=http://${ip}:${port}/
+  export https_proxy=http://${ip}:${port}/
+  export no_proxy=localhost,127.0.0.0/8,::1
+}
+
+proxy-all() {
+  ip=${1:-127.0.0.1}
+  port=${2:-20170}
+  export ALL_PROXY=socks://${ip}:${port}/
+  export all_proxy=socks://${ip}:${port}/
+  export NO_PROXY=localhost,127.0.0.0/8,::1
+  export no_proxy=localhost,127.0.0.0/8,::1
+}
+
+change-debug-key() {
+  common_store=debug.keystore
+  key_name=${1:--h}
+  case $key_name in
+    -h)
+      list=$(cd ~/.android && for i in *-"${common_store}"; do echo -n "${i%-${common_store}}, "; done)
+      echo "valid keys are: (${list%,*})"
+      ;;
+    *)
+      file=~/.android/${key_name}-${common_store}
+      if [ -f "$file" ]; then
+        ln -sf "$file" ~/.android/${common_store}
+      else
+        echo "No keyfile for key \"${key_name}\""
+      fi
+      ;;
+  esac
+}
+
+ssh2vm() {
+  vm_name=${1:--h}
+  user_name=${2:-user}
+  case $vm_name in
+    -h)
+      list=$(vboxmanage list runningvms | sed -n 's/"\(.*\)".*/\1/p' | xargs)
+      echo "valid vm name are: [${list[*]// /,}]"
+      echo "$0 vm-name [user-name]"
+      ;;
+    *)
+      ip=$(vboxmanage guestproperty get "${vm_name}" "/VirtualBox/GuestInfo/Net/0/V4/IP" | cut -d" " -f2)
+      ssh "${user_name}"@"${ip}"
+      ;;
+  esac
+}
+
+aosp2tag() {
+  usage() {
+    printf "USAGE:%s [-f -g] -b branch \n" "$1"
+    printf "\tbranch should be like 6 or 6.0.0_r1 \n"
+    printf "\t-f just download framework \n"
+    printf "\t-g use google repo \n"
+    version_file="build/make/core/version_defaults.mk"
+    if [ -f ${version_file} ]; then
+      sdk_int=$(grep "^[ ]*PLATFORM_SDK_VERSION" ${version_file} | cut -d'=' -f2 | tr -d '[:blank:]')
+      echo Local branch SDK VERSION: \""${sdk_int}"\".
+    fi
+  }
+  gen_remove_dropped() {
+    out_file=${1:-remove_dropped.sh}
+    rm "${out_file}"
+    to_remove_count=0
+    while read -r -d '' raw_path; do
+      better_path=$(echo "${raw_path}" | sed -n 's/.\/\(.*\)\/.git/\1/p')
+      count=$(grep -c "path=\"$better_path\"" .repo/manifests/default.xml)
+      if [ "$count" -eq 0 ]; then
+        to_remove_count=$((to_remove_count + 1))
+        echo rm -rf "\"$better_path\"" >>"${out_file}"
+      fi
+    done < <(find . -maxdepth 5 -path ./.repo -prune -o -name .git -print0)
+    if [ ${to_remove_count} -gt 0 ]; then
+      echo Generate "${out_file}" with "${to_remove_count}" entries
+    else
+      echo no entries to remove
+    fi
+  }
+  unset inner_branch
+  just_framework=0
+  use_google=0
+  while getopts 'b:fgh' flag; do
+    case "${flag}" in
+      f) just_framework=1 ;;
+      g) use_google=1 ;;
+      b) inner_branch=$OPTARG ;;
+      *)
+        usage "$0"
+        return
+        ;;
+    esac
+  done
+
+  param_ver=${inner_branch:--h}
+  version=""
+  aosp_source='https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/manifest'
+  case ${param_ver} in
+    -h | 0)
+      usage "$0"
+      return
+      ;;
+    [1-9] | [1-9][0-9])
+      version="${param_ver}.0.0_r1"
+      ;;
+    *)
+      version=${param_ver}
+      ;;
+  esac
+  if [ -n "${version}" ]; then
+    case ${use_google} in
+      1)
+        unset REPO_URL
+        aosp_source='https://android.googlesource.com/platform/manifest'
+        echo "using src ${aosp_source}, just framework ${just_framework}"
+        ;;
+      *)
+        aosp_source='git://mirrors.ustc.edu.cn/aosp/platform/manifest'
+        export REPO_URL=${aosp_source}
+        echo "using src ${aosp_source}, just framework ${just_framework}"
+        ;;
+    esac
+    echo -n "You're switching to android-${version}, [Y/n]? "
+    read -r ans
+    ans=${ans:-y}
+    case $ans in
+      [Yy])
+        echo "[REPO INIT]"
+        repo init -u ${aosp_source} -b android-"${version}" --partial-clone --clone-filter=blob:limit=10M
+        case ${just_framework} in
+          1)
+            echo "[REPO SYNC framework]"
+            repo sync -c -d --no-clone-bundle platform/frameworks/base platform/frameworks/native platform/libcore platform/build platform/libnativehelper
+            ;;
+          *)
+            echo "[REPO SYNC all]"
+            repo sync -c
+            echo "[Generate shell file to remove dropped module]"
+            gen_remove_dropped remove_dropped.sh
+            ;;
+        esac
+        ;;
+      *)
+        echo "[CANCELLED]"
+        ;;
+    esac
+  fi
+}

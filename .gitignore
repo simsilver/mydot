@@ -1,0 +1,8 @@
+.DS_Store
+
+/.repo/
+/.idea/
+/target/
+/*.tar
+/*.tar.*
+
